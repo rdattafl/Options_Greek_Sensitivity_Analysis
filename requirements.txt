@@ -1,0 +1,19 @@
+# Core App Framework
+streamlit
+
+# Plotting & Visualization
+plotly
+matplotlib
+seaborn
+
+# Data & Numerical Libraries
+pandas
+numpy
+scipy
+
+# Market Data APIs
+yfinance
+
+# Web/Data Utilities
+requests
+python-dateutil
