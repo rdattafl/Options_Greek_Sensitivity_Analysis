@@ -25,11 +25,10 @@ q = st.sidebar.number_input("Dividend yield (q)", value=0.0)
 
 # --- Tabs ---
 tabs = st.tabs([
-    "Greeks Explorer",
-    "Chain Analyzer",
-    "Strategy Simulator",
-    "Trade Scanner",
-    "Glossary & Interpretation"
+    "Tab 1 - Greeks Explorer",
+    "Tab 2 - Chain Analyzer",
+    "Tab 3 - Strategy Simulator",
+    "Tab 4 - Trade Scanner"
 ])
 
 # =======================
@@ -55,11 +54,23 @@ with tabs[0]:
     sigma_vals = np.linspace(0.05, 1.0, 40)
     T_vals = np.linspace(0.01, 2.0, 40)
 
+    # Greek selection
     selected_greek = st.radio(
         "Select Greek to View:",
         ["Delta", "Gamma", "Vega", "Theta", "Rho"],
         horizontal=True
     )
+
+    # Inline interpretation
+    greek_descriptions = {
+        "Delta": "📉 **Delta** measures how much the option price changes with a $1 change in the underlying asset's price.",
+        "Gamma": "🔁 **Gamma** measures how much the Delta changes with a $1 change in the underlying asset's price (i.e., convexity of Delta).",
+        "Vega": "🌪️ **Vega** measures sensitivity of the option price to changes in implied volatility.",
+        "Theta": "⏳ **Theta** measures how much the option price decays per day, holding everything else constant.",
+        "Rho": "💰 **Rho** measures sensitivity of the option price to changes in interest rates."
+    }
+
+    st.markdown(greek_descriptions[selected_greek])
 
     if mesh_choice == "S vs σ":
         X, Y = np.meshgrid(s_vals, sigma_vals)
@@ -205,7 +216,7 @@ with tabs[3]:
         min_vol = st.slider("Min Volume", 0, 5000, 100)
 
         filtered = chain_with_greeks[
-            (chain_with_greeks["iv"] >= min_iv) &
+            (chain_with_greeks["impliedVolatility"] >= min_iv) &
             (chain_with_greeks["volume"] >= min_vol)
         ].sort_values(by=metric, ascending=False).head(15)
 
