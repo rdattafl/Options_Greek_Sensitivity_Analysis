@@ -13,6 +13,7 @@ from plot_helpers import (
     plot_trade_scanner_table
 )
 import yfinance as yf
+import pandas as pd
 import json
 
 st.set_page_config(page_title="Options Risk Diagnostics", layout="wide")
@@ -197,82 +198,40 @@ with tabs[0]:
         """
     }
 
+    st.markdown(greek_descriptions[selected_greek])
 
-    st.markdown(greek_descriptions[selected_greek])        
-
-# =======================
-# Tab 2: Chain Analyzer
-# =======================
 with tabs[1]:
-    st.header("🧾 Live Option Chain Viewer")
+    st.header("📈 Options Chain Viewer")
 
-    expiry = st.selectbox("Select Expiry", valid_expiries)
-    option_type = st.radio("Option Type", ["call", "put"])
-    min_oi = st.slider("Min Open Interest", 0, 5000, 100)
-    min_vol = st.slider("Min Volume", 0, 5000, 100)
+    # Step 1: Ticker input
+    ticker = st.text_input("Enter Ticker Symbol", "AAPL").upper()
 
-    chain_df = fetch_chain(ticker, expiry)
-    chain_df = clean_chain(chain_df)
-    chain_df = add_greeks_to_chain(chain_df, r, q)
+    if ticker:
+        try:
+            ticker_obj = yf.Ticker(ticker)
+            expiries = ticker_obj.options
+        except Exception:
+            st.error("Invalid ticker or options data unavailable.")
+            st.stop()
 
-    filtered = chain_df[
-        (chain_df["option_type"] == option_type) &
-        (chain_df["openInterest"] >= min_oi) &
-        (chain_df["volume"] >= min_vol)
-    ].sort_values("strike")
+        if not expiries:
+            st.warning("No option expirations found.")
+            st.stop()
 
-    st.write(f"Filtered {option_type} contracts")
-    st.dataframe(filtered[["strike", "lastPrice", "bid", "ask", "impliedVolatility", "delta", "gamma", "theta", "vega", "rho", "openInterest", "volume"]])
+        # Step 2: Expiry selection
+        expiry = st.selectbox("Choose Expiry Date", expiries)
 
+        # Step 3: Fetch and show full chain
+        try:
+            chain = ticker_obj.option_chain(expiry)
+            calls = chain.calls.copy()
+            puts = chain.puts.copy()
 
+            calls["option_type"] = "call"
+            puts["option_type"] = "put"
 
-# =======================
-# Tab 3: Strategy Simulator
-# =======================
-with tabs[2]:
-    st.header("Options Strategy Risk Simulator")
-    st.markdown("Build a strategy and simulate its Greek exposures and PnL under changing market scenarios.")
-
-    strategy_input = st.text_area("Enter strategy (JSON list)", 
-        '[{"type": "call", "strike": 150, "position": 1, "expiry": 0.5}]')
-
-    try:
-        legs = json.loads(strategy_input)
-        s_grid = np.linspace(50, 300, 30)
-        vol_grid = np.linspace(0.05, 1.0, 30)
-
-        # Simulate PnL for each (S, vol) pair
-        pnl_matrix = np.zeros((len(vol_grid), len(s_grid)))
-
-        for i, sigma_val in enumerate(vol_grid):
-            for j, spot_val in enumerate(s_grid):
-                spot_paths = np.array([[spot_val]])  # shape (1, 1)
-                vol_paths = np.array([[sigma_val]])  # shape (1, 1)
-                sim_df = simulate_strategy(legs, spot_paths, vol_paths, r, q)
-                pnl_matrix[i, j] = sim_df["pnl"].values[0]
-
-        # Plot
-        st.plotly_chart(plot_pnl_surface(pnl_matrix, s_grid, vol_grid), use_container_width=True)
-    except Exception as e:
-        st.error(f"Error parsing strategy input: {e}")
-
-# =======================
-# Tab 4: Trade Scanner
-# =======================
-with tabs[3]:
-    st.header("Real-Time Trade Scanner")
-    st.markdown("Sort by Vega/Gamma/Theta to identify top-risk contracts.")
-
-    if "chain_with_greeks" in locals():
-        metric = st.selectbox("Sort By", ["vega", "gamma", "theta"])
-        min_iv = st.slider("Min IV", 0.0, 1.0, 0.1)
-        min_vol = st.slider("Min Volume", 0, 5000, 100)
-
-        filtered = chain_with_greeks[
-            (chain_with_greeks["impliedVolatility"] >= min_iv) &
-            (chain_with_greeks["volume"] >= min_vol)
-        ].sort_values(by=metric, ascending=False).head(15)
-
-        plot_trade_scanner_table(filtered)
-    else:
-        st.warning("Load option chain in Tab 2 before scanning.")
+            full_chain = pd.concat([calls, puts], ignore_index=True)
+            st.subheader(f"Full Option Chain for {ticker} (Exp: {expiry})")
+            st.dataframe(full_chain)
+        except Exception as e:
+            st.error(f"Failed to fetch option chain: {e}")
