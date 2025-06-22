@@ -438,7 +438,7 @@ with tabs[2]:
 # Tab 4: Trade Scanner 
 # =======================
 with tabs[3]:
-    st.header("Options Signal Scanner test")
+    st.header("Options Signal Scanner")
 
     st.markdown(
         "Scan a ticker (or 1–5 tickers) for **IV skew, IV > HV mispricing, "
@@ -497,7 +497,10 @@ with tabs[3]:
             # -------- plots ----------
             with st.expander("Visualisations", expanded=False):
                 st.plotly_chart(plot_iv_skew(result_df), use_container_width=True)
-                st.plotly_chart(plot_iv_hv_scatter(result_df), use_container_width=True)
+                st.plotly_chart(
+                    plot_iv_hv_scatter(result_df, ratio_thresh=iv_hv_thresh / 100),
+                    use_container_width=True,
+                )
                 st.plotly_chart(plot_volume_spikes(result_df), use_container_width=True)
 
             # -------- CSV download ----

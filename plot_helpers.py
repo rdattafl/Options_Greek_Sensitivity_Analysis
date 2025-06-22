@@ -47,62 +47,100 @@ def _contract_code(row) -> str:
 
 def plot_iv_skew(df: pd.DataFrame) -> go.Figure:
     """
-    IV vs strike scatter, colour by |skew_z|.
+    IV vs strike scatter, colour = skew-z.  Legend (Call / Put) is moved to
+    the top-left and the colour-bar is nudged right to avoid overlap.
     """
     fig = go.Figure()
     for opt_type, colr in [("call", "royalblue"), ("put", "firebrick")]:
         sub = df[df["type"] == opt_type]
         if sub.empty:
             continue
+        # only *one* trace gets the colour-bar so we don't have two bars
+        showscale = opt_type == "call"
         fig.add_trace(
             go.Scatter(
                 x=sub["strike"],
                 y=sub["iv"],
                 mode="markers",
                 marker=dict(
-                    size=7,
+                    size=8,
                     color=sub["skew_z"],
                     colorscale="RdBu",
-                    showscale=True,
-                    colorbar=dict(title="Skew z"),
+                    showscale=showscale,
+                    colorbar=dict(
+                        title="Skew z",
+                        x=1.05,           # push bar to the right
+                        len=0.85,
+                    ),
                 ),
                 name=opt_type.capitalize(),
-                text=sub.apply(_contract_code, axis=1),
-                hovertemplate=(
-                    "Strike: %{x}<br>IV: %{y:.2%}<br>Skew z: %{marker.color:.2f}<br>"
-                    "%{text}"
+                text=sub.apply(
+                    lambda r: f"{r['dte']}d {r['type'][0].upper()} {r['strike']}", axis=1
                 ),
+                hovertemplate=(
+                    "Strike: %{x}<br>IV: %{y:.2%}<br>Skew z: %{marker.color:.2f}<br>%{text}"
+                ),
+                showlegend=True,
             )
         )
-    fig.update_layout(title="IV skew by strike", xaxis_title="Strike", yaxis_title="IV")
+
+    fig.update_layout(
+        title="IV skew by strike",
+        xaxis_title="Strike",
+        yaxis_title="IV",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.08,
+            xanchor="left",
+            x=0,
+        ),
+        margin=dict(r=90),  # leave room for colour-bar
+    )
     return fig
 
 
-def plot_iv_hv_scatter(df: pd.DataFrame) -> go.Figure:
+def plot_iv_hv_scatter(df: pd.DataFrame, ratio_thresh: float = 1.2) -> go.Figure:
     """
-    IV vs HV scatter; all points share same HV so draw a diagonal reference line.
+    Scatter of (IV / HV) ratio vs IV.
+    Points right of the vertical line are overpriced relative to realised vol.
     """
     if df.empty:
         return go.Figure()
-    hv_val = float(df["iv"].iloc[0] / df["iv_hv_ratio"].iloc[0])
 
     fig = go.Figure()
+
+    # compute ratio once so we can reuse
+    ratio = df["iv_hv_ratio"]
+    iv    = df["iv"]
+
     fig.add_trace(
         go.Scatter(
-            x=df["iv_hv_ratio"] * hv_val,
-            y=df["iv"],
+            x=ratio,
+            y=iv,
             mode="markers",
-            marker=dict(size=7, color="darkorange"),
-            text=df.apply(_contract_code, axis=1),
+            marker=dict(size=8, color="darkorange"),
+            text=df.apply(
+                lambda r: f"{r['dte']}d {r['type'][0].upper()} {r['strike']}", axis=1
+            ),
             hovertemplate="IV/HV: %{x:.2f}<br>IV: %{y:.2%}<br>%{text}",
+            name="Contracts",
         )
     )
-    fig.add_shape(type="line", x0=0, y0=0, x1=hv_val * 3, y1=hv_val * 3,
-                  line=dict(dash="dot", width=1), name="1:1")
+
+    # vertical reference line at threshold
+    fig.add_shape(
+        type="line",
+        x0=ratio_thresh,
+        y0=0,
+        x1=ratio_thresh,
+        y1=max(iv) * 1.05,
+        line=dict(dash="dot", width=2, color="red"),
+    )
 
     fig.update_layout(
-        title="IV vs HV (contracts)",
-        xaxis_title="HV × (IV/HV)",
+        title="IV / HV mispricing",
+        xaxis_title="IV ÷ HV  (ratio)",
         yaxis_title="IV",
         showlegend=False,
     )
