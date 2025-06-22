@@ -304,14 +304,18 @@ with tabs[1]:
         weird_df = df[df["weird"]].sort_values(by="spread_pct", ascending=False)
         st.dataframe(weird_df[["contractSymbol", "option_type", "strike", "bid", "ask", "mid", "volume", "spread_pct"]].head(10))
 
-# --- Tab 3: Strategy Simulator (in app.py) ---
-
+# =======================
+# Tab 3: Strategy Simulator
+# =======================
 with tabs[2]:
     st.header("Options Strategy Simulator")
 
-    st.markdown("Enter multiple option legs to build your custom options strategy. "
-                "The payoff diagram and key metrics will update automatically.")
+    st.markdown(
+        "Build a custom multi-leg options strategy, add an underlying stock hedge, "
+        "stress-test implied volatility, or start from a predefined template."
+    )
 
+    # -------------------------- basic inputs --------------------------
     ticker_sim = st.text_input("Ticker Symbol", value="AAPL")
     try:
         ticker_obj_sim = yf.Ticker(ticker_sim)
@@ -322,11 +326,44 @@ with tabs[2]:
 
     expiry_sim = st.selectbox("Select Expiration", expiries_sim)
 
-    st.subheader("Add Option Legs")
+    # --------------------- 1️⃣ Strategy Templates ----------------------
+    strategy_templates = {
+        "Bull Call Spread": [
+            {"type": "call", "action": "buy",  "strike": 100, "qty": 1, "price": 5, "expiry": expiry_sim},
+            {"type": "call", "action": "sell", "strike": 110, "qty": 1, "price": 2, "expiry": expiry_sim},
+        ],
+        "Long Straddle": [
+            {"type": "call", "action": "buy", "strike": 100, "qty": 1, "price": 4, "expiry": expiry_sim},
+            {"type": "put",  "action": "buy", "strike": 100, "qty": 1, "price": 5, "expiry": expiry_sim},
+        ],
+        "Iron Condor": [
+            {"type": "call", "action": "sell", "strike": 110, "qty": 1, "price": 2, "expiry": expiry_sim},
+            {"type": "call", "action": "buy",  "strike": 115, "qty": 1, "price": 1, "expiry": expiry_sim},
+            {"type": "put",  "action": "sell", "strike":  90, "qty": 1, "price": 2, "expiry": expiry_sim},
+            {"type": "put",  "action": "buy",  "strike":  85, "qty": 1, "price": 1, "expiry": expiry_sim},
+        ],
+    }
 
+    template_choice = st.selectbox(
+        "Choose Strategy Template",
+        ["None"] + list(strategy_templates.keys()),
+        index=0,
+        help="Auto-populate common multi-leg strategies."
+    )
+
+    # Initialise session state
     if "legs" not in st.session_state:
         st.session_state.legs = []
 
+    # Apply template
+    if template_choice != "None" and st.button("Load Template"):
+        # overwrite current legs with a deep copy of template legs
+        import copy
+        st.session_state.legs = copy.deepcopy(strategy_templates[template_choice])
+
+    st.subheader("Add / Edit Option Legs")
+
+    # -------------------- manual leg entry form ----------------------
     with st.form("leg_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -335,36 +372,57 @@ with tabs[2]:
             action = st.selectbox("Action", ["Buy", "Sell"])
         with col3:
             qty = st.number_input("Quantity", min_value=1, value=1, step=1)
-
         strike = st.number_input("Strike Price", min_value=0.0, value=100.0, step=1.0)
         price = st.number_input("Premium (optional)", min_value=0.0, value=0.0, step=0.01)
 
-        submitted = st.form_submit_button("Add Leg")
-        if submitted:
-            leg = {
-                "type": opt_type.lower(),
-                "action": action.lower(),
-                "strike": strike,
-                "qty": qty,
-                "price": price,
-                "expiry": expiry_sim
-            }
-            st.session_state.legs.append(leg)
+        if st.form_submit_button("Add Leg"):
+            st.session_state.legs.append(
+                {
+                    "type": opt_type.lower(),
+                    "action": action.lower(),
+                    "strike": strike,
+                    "qty": qty,
+                    "price": price,
+                    "expiry": expiry_sim,
+                }
+            )
 
-    # Show current strategy legs
+    # ---------------------------- payoff inputs -----------------------------
     if st.session_state.legs:
         st.subheader("Current Strategy Legs")
         st.dataframe(pd.DataFrame(st.session_state.legs))
 
-        # Input for current spot price
-        spot_price = st.number_input("Current Spot Price", min_value=0.0, value=100.0, step=0.5)
-
-        # Calculate payoff and metrics
-        payoff_df, metrics = calculate_strategy_payoff(
-            st.session_state.legs, spot_price, r
+        spot_price = st.number_input(
+            "Current Spot Price", min_value=0.0, value=100.0, step=0.5
         )
 
-        # Plot
+        # 2️⃣ Underlying hedge
+        underlying_qty = st.number_input(
+            "Shares of Underlying ( + long / – short )",
+            value=0,
+            step=1,
+            help="Add stock to hedge delta or create covered positions.",
+        )
+
+        # 3️⃣ IV stress-test
+        iv_shift = st.slider(
+            "Implied Volatility Shift (%)",
+            min_value=-50,
+            max_value=50,
+            value=0,
+            step=1,
+            help="Re-price each option leg with shifted IV before payoff calc.",
+        )
+
+        # ------------------- calculate and plot strategy --------------------
+        payoff_df, metrics = calculate_strategy_payoff(
+            st.session_state.legs,
+            spot_price,
+            r,                 # risk-free
+            underlying_qty,
+            iv_shift
+        )
+
         fig = plot_strategy_payoff(payoff_df)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -373,4 +431,3 @@ with tabs[2]:
 
     if st.button("Reset Strategy"):
         st.session_state.legs = []
-
