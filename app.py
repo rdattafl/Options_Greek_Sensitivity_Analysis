@@ -12,6 +12,7 @@ from plot_helpers import (
     plot_strategy_exposure, plot_pnl_surface,
     plot_trade_scanner_table
 )
+from datetime import datetime
 
 st.set_page_config(page_title="Options Risk Diagnostics", layout="wide")
 
@@ -35,6 +36,7 @@ tabs = st.tabs([
 # =======================
 with tabs[0]:
     st.header("Greeks Sensitivity Explorer")
+    st.subheader("Developed by Riju Datta")
     st.markdown("Explore how option Greeks behave across different market conditions.")
 
     col1, col2 = st.columns(2)
@@ -122,7 +124,7 @@ with tabs[0]:
 # =======================
 with tabs[1]:
     st.header("Real Options Chain Analyzer")
-    expiry = st.text_input("Expiry Date (YYYY-MM-DD)", value="2025-07-19")
+    expiry = st.text_input("Expiry Date (YYYY-MM-DD)", value=str(datetime.now().strftime("%Y%m%d")))
     show_chain = st.button("Fetch & Analyze Chain")
 
     if show_chain:
