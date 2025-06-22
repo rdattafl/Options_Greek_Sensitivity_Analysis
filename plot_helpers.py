@@ -144,3 +144,22 @@ def plot_iv_hv_scatter(df: pd.DataFrame, ratio_thresh: float = 1.2) -> go.Figure
         showlegend=False,
     )
     return fig
+
+def plot_volume_spikes(df: pd.DataFrame) -> go.Figure:
+    """
+    Bar chart of volume multiples for flagged contracts.
+    """
+    fig = go.Figure(
+        data=go.Bar(
+            x=df.apply(_contract_code, axis=1),
+            y=df["vol_mult"],
+            marker_color="seagreen",
+            hovertemplate="Vol mult: %{y:.1f}<br>%{x}",
+        )
+    )
+    fig.update_layout(
+        title="Volume spike multiples",
+        xaxis_title="Contract",
+        yaxis_title="Volume / baseline",
+    )
+    return fig
