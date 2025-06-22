@@ -13,6 +13,7 @@ from plot_helpers import (
     plot_trade_scanner_table
 )
 import yfinance as yf
+import json
 
 st.set_page_config(page_title="Options Risk Diagnostics", layout="wide")
 
@@ -24,11 +25,11 @@ q = st.sidebar.number_input("Dividend yield (q)", value=0.0)
 
 # --- Tabs ---
 tabs = st.tabs([
-    "1️⃣ Greeks Explorer",
-    "2️⃣ Chain Analyzer",
-    "3️⃣ Strategy Simulator",
-    "4️⃣ Trade Scanner",
-    "5️⃣ Glossary & Interpretation"
+    "Greeks Explorer",
+    "Chain Analyzer",
+    "Strategy Simulator",
+    "Trade Scanner",
+    "Glossary & Interpretation"
 ])
 
 # =======================
@@ -151,8 +152,8 @@ with tabs[1]:
 
         if st.checkbox("Overlay Theoretical Model"):
             K_vals = chain_with_greeks["strike"].values
-            T_vals = chain_with_greeks["ttm"].values
-            σ_vals = chain_with_greeks["iv"].values
+            T_vals = chain_with_greeks["T"].values
+            σ_vals = chain_with_greeks["impliedVolatility"].values
             model_vals = delta(S, K_vals, T_vals, σ_vals, r, q)
             overlay_fig = plot_chain_overlay(
                 K_vals, model_vals,
@@ -166,21 +167,28 @@ with tabs[1]:
 # =======================
 with tabs[2]:
     st.header("Options Strategy Risk Simulator")
-    st.markdown("📈 Build a strategy and simulate its Greek exposures and PnL under changing market scenarios.")
+    st.markdown("Build a strategy and simulate its Greek exposures and PnL under changing market scenarios.")
 
     strategy_input = st.text_area("Enter strategy (JSON list)", 
         '[{"type": "call", "strike": 150, "position": 1, "expiry": 0.5}]')
 
     try:
-        import json
         legs = json.loads(strategy_input)
         s_grid = np.linspace(50, 300, 30)
         vol_grid = np.linspace(0.05, 1.0, 30)
-        S_mesh, V_mesh = np.meshgrid(s_grid, vol_grid)
-        df_sim = simulate_strategy(legs, S_mesh, V_mesh, r, q)
 
-        st.plotly_chart(plot_strategy_exposure(df_sim), use_container_width=True)
-        st.plotly_chart(plot_pnl_surface(df_sim["pnl"].values.reshape(V_mesh.shape), s_grid, vol_grid), use_container_width=True)
+        # Simulate PnL for each (S, vol) pair
+        pnl_matrix = np.zeros((len(vol_grid), len(s_grid)))
+
+        for i, sigma_val in enumerate(vol_grid):
+            for j, spot_val in enumerate(s_grid):
+                spot_paths = np.array([[spot_val]])  # shape (1, 1)
+                vol_paths = np.array([[sigma_val]])  # shape (1, 1)
+                sim_df = simulate_strategy(legs, spot_paths, vol_paths, r, q)
+                pnl_matrix[i, j] = sim_df["pnl"].values[0]
+
+        # Plot
+        st.plotly_chart(plot_pnl_surface(pnl_matrix, s_grid, vol_grid), use_container_width=True)
     except Exception as e:
         st.error(f"Error parsing strategy input: {e}")
 
@@ -189,7 +197,7 @@ with tabs[2]:
 # =======================
 with tabs[3]:
     st.header("Real-Time Trade Scanner")
-    st.markdown("🔍 Sort by Vega/Gamma/Theta to identify top-risk contracts.")
+    st.markdown("Sort by Vega/Gamma/Theta to identify top-risk contracts.")
 
     if "chain_with_greeks" in locals():
         metric = st.selectbox("Sort By", ["vega", "gamma", "theta"])
@@ -203,7 +211,7 @@ with tabs[3]:
 
         plot_trade_scanner_table(filtered)
     else:
-        st.warning("⚠️ Load option chain in Tab 2 before scanning.")
+        st.warning("Load option chain in Tab 2 before scanning.")
 
 # =======================
 # Tab 5: Glossary
