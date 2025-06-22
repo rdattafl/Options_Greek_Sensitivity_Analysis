@@ -201,41 +201,27 @@ with tabs[0]:
 
     st.markdown(greek_descriptions[selected_greek])
 
+# =======================
+# Tab 2: Chain Analyzer
+# =======================
 with tabs[1]:
-    st.header("📈 Options Chain Viewer")
+    st.header("📈 Real Options Chain Analyzer")
 
-    # Step 1: Ticker input
-    ticker = st.text_input("Enter Ticker Symbol", "AAPL").upper()
+    ticker = st.text_input("Enter Stock Ticker", value="AAPL").upper()
 
     if ticker:
         try:
             ticker_obj = yf.Ticker(ticker)
-            expiries = ticker_obj.options
+            valid_expiries = ticker_obj.options
         except Exception:
-            st.error("Invalid ticker or options data unavailable.")
+            st.error("Could not fetch options data for this ticker.")
             st.stop()
 
-        if not expiries:
-            st.warning("No option expirations found.")
+        if not valid_expiries:
+            st.error("No available option expirations for this ticker.")
             st.stop()
 
-        # Step 2: Expiry selection
-        expiry = st.selectbox("Choose Expiry Date", expiries)
-
-        # Step 3: Fetch and show full chain
-        try:
-            chain = ticker_obj.option_chain(expiry)
-            calls = chain.calls.copy()
-            puts = chain.puts.copy()
-
-            calls["option_type"] = "call"
-            puts["option_type"] = "put"
-
-            full_chain = pd.concat([calls, puts], ignore_index=True)
-            st.subheader(f"Full Option Chain for {ticker} (Exp: {expiry})")
-            st.dataframe(full_chain)
-        except Exception as e:
-            st.error(f"Failed to fetch option chain: {e}")
+        expiry = st.selectbox("Select Expiry Date", valid_expiries, index=0)
 
         raw_df = fetch_chain(ticker, expiry)
 
@@ -254,37 +240,53 @@ with tabs[1]:
 
         st.write(f"Current Spot Price: **${spot:.2f}**")
 
-        # Calculate mid, spread, IV placeholder if missing
+        # Process chain
         df["mid"] = (df["bid"] + df["ask"]) / 2
         df["spread"] = df["ask"] - df["bid"]
         df["spread_pct"] = df["spread"] / df["mid"].replace(0, np.nan)
-
-        # Determine ITM/OTM
         df["ITM"] = ((df["option_type"] == "call") & (df["strike"] < spot)) | \
                     ((df["option_type"] == "put") & (df["strike"] > spot))
         df["dist_from_spot(%)"] = 100 * (df["strike"] - spot) / spot
         df["break_even"] = np.where(df["option_type"] == "call",
                                     df["strike"] + df["mid"],
                                     df["strike"] - df["mid"])
-
-        # Flag weird contracts
         df["weird"] = (df["mid"] <= 0) | (df["bid"] > df["ask"]) | (df["spread_pct"] > 0.5)
 
         # Section 1: Liquid contracts
-        st.subheader("Most Liquid Contracts (Sorted by Volume and Spread Tightness)")
+        st.subheader("Most Liquid Contracts")
+        st.markdown("""
+        These are the **top 10 contracts** with high trading **volume and open interest**, and relatively **tight bid-ask spreads**.
+        These contracts are easier to enter and exit without slippage and are typically favored by active traders.
+        """)
         liquid = df[(df["volume"] > 0) & (df["openInterest"] > 0)].copy()
         liquid = liquid.sort_values(by=["volume", "spread_pct"], ascending=[False, True])
         st.dataframe(liquid[["contractSymbol", "option_type", "strike", "volume", "openInterest", "bid", "ask", "spread_pct"]].head(10))
 
         # Section 2: IV Skew
+        st.subheader("Implied Volatility Skew")
+        st.markdown("""
+        **Implied Volatility (IV)** reflects how much the market expects the stock to move.  
+        A **steep skew** in IV across strikes often indicates **hedging demand** or **directional bias**.
+
+        - **Call IV > Put IV** ➝ bullish demand or call overwriting.
+        - **Put IV > Call IV** ➝ bearish protection or crash hedging.
+        """)
         if "impliedVolatility" in df.columns and df["impliedVolatility"].notnull().any():
-            st.subheader("Implied Volatility Skew")
             fig_iv = px.line(df, x="strike", y="impliedVolatility", color="option_type",
                              title="Implied Volatility vs Strike", markers=True)
             st.plotly_chart(fig_iv, use_container_width=True)
+        else:
+            st.warning("No implied volatility data found for this chain.")
 
-        # Section 3: ITM vs OTM
-        st.subheader("In-The-Money (ITM) vs Out-of-The-Money (OTM) Options")
+        # Section 3: ITM vs OTM Comparison
+        st.subheader("In-The-Money vs Out-of-The-Money Contracts")
+        st.markdown("""
+        **In-the-money (ITM)** options have intrinsic value and behave more like stock, while **out-of-the-money (OTM)** options
+        are pure premium and are often used for **speculation** or **hedging**.
+
+        This section shows how far the break-even point is from the current stock price,
+        which is critical when evaluating whether a trade makes sense.
+        """)
         itm_df = df[df["ITM"]].sort_values(by="strike")
         otm_df = df[~df["ITM"]].sort_values(by="strike")
         st.markdown("**ITM Contracts:**")
@@ -293,7 +295,14 @@ with tabs[1]:
         st.dataframe(otm_df[["contractSymbol", "option_type", "strike", "mid", "break_even", "dist_from_spot(%)"]].head(10))
 
         # Section 4: Weird Contracts
-        st.subheader("Weirdly Priced or Illiquid Contracts")
+        st.subheader("Potentially Mispriced or Illiquid Contracts")
+        st.markdown("""
+        This identifies contracts with unusual pricing behavior:
+        - **Negative or 0 mid-price**
+        - **Bid > Ask** (data error or stale quote)
+        - **Very wide bid-ask spread** (> 50%)
+
+        These contracts are often **illiquid** or **data anomalies**, and should be **avoided** in serious strategies.
+        """)
         weird_df = df[df["weird"]].sort_values(by="spread_pct", ascending=False)
         st.dataframe(weird_df[["contractSymbol", "option_type", "strike", "bid", "ask", "mid", "volume", "spread_pct"]].head(10))
-
