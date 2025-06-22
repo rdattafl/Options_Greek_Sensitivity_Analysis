@@ -204,76 +204,26 @@ with tabs[0]:
 # Tab 2: Chain Analyzer
 # =======================
 with tabs[1]:
-    st.header("Real Options Chain Analyzer")
+    st.header("🧾 Live Option Chain Viewer")
 
-    ticker_input = st.text_input("Enter Ticker Symbol", value="AAPL").upper()
-    
-    # Defensive check
-    if not ticker_input:
-        st.warning("Please enter a valid ticker symbol.")
-        st.stop()
+    expiry = st.selectbox("Select Expiry", valid_expiries)
+    option_type = st.radio("Option Type", ["call", "put"])
+    min_oi = st.slider("Min Open Interest", 0, 5000, 100)
+    min_vol = st.slider("Min Volume", 0, 5000, 100)
 
-    try:
-        ticker_obj = yf.Ticker(ticker_input)
-        valid_expiries = ticker_obj.options
-    except Exception as e:
-        st.error(f"Could not fetch options data for this ticker: {e}")
-        st.stop()
+    chain_df = fetch_chain(ticker, expiry)
+    chain_df = clean_chain(chain_df)
+    chain_df = add_greeks_to_chain(chain_df, r, q)
 
-    if not valid_expiries:
-        st.error("No available option expirations for this ticker.")
-        st.stop()
+    filtered = chain_df[
+        (chain_df["option_type"] == option_type) &
+        (chain_df["openInterest"] >= min_oi) &
+        (chain_df["volume"] >= min_vol)
+    ].sort_values("strike")
 
-    expiry = st.selectbox("Select Expiry Date", valid_expiries, index=0)
+    st.write(f"Filtered {option_type} contracts")
+    st.dataframe(filtered[["strike", "lastPrice", "bid", "ask", "impliedVolatility", "delta", "gamma", "theta", "vega", "rho", "openInterest", "volume"]])
 
-    # Automatically fetch chain when expiry or ticker changes
-    try:
-        raw_df = fetch_chain(ticker_input, expiry)
-
-        if raw_df.empty:
-            st.warning("Fetched option chain is empty. This may happen if the ticker is illiquid or delisted.")
-            st.stop()
-
-        clean_df = clean_chain(raw_df)
-        chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
-
-        greek = st.selectbox("Plot Greek vs Strike", ["delta", "gamma", "theta", "vega", "rho"])
-
-        st.subheader("Chain Preview")
-        st.dataframe(chain_with_greeks.head())
-
-        st.subheader(f"{greek.title()} Summary")
-        st.write(chain_with_greeks[greek].describe())
-
-        fig_chain = plot_option_chain(chain_with_greeks, greek)
-        st.plotly_chart(fig_chain, use_container_width=True)
-
-        if st.checkbox("Overlay Theoretical Model"):
-            S_overlay = st.slider("Spot Price for Model", 50, 300, 150)
-            K_vals = chain_with_greeks["strike"].values
-            T_vals = chain_with_greeks["T"].values
-            σ_vals = chain_with_greeks["impliedVolatility"].values
-
-            if greek == "delta":
-                model_vals = delta(S_overlay, K_vals, T_vals, σ_vals, r, q)
-            elif greek == "gamma":
-                model_vals = gamma(S_overlay, K_vals, T_vals, σ_vals, r, q)
-            elif greek == "vega":
-                model_vals = vega(S_overlay, K_vals, T_vals, σ_vals, r, q)
-            elif greek == "theta":
-                model_vals = theta(S_overlay, K_vals, T_vals, σ_vals, r, q, option_type="call")  # could make this toggleable
-            elif greek == "rho":
-                model_vals = rho(S_overlay, K_vals, T_vals, σ_vals, r, q, option_type="call")
-
-            overlay_fig = plot_chain_overlay(
-                K_vals, model_vals,
-                K_vals, chain_with_greeks[greek].values,
-                greek
-            )
-            st.plotly_chart(overlay_fig, use_container_width=True)
-
-    except Exception as e:
-        st.error(f"Error processing option chain: {e}")
 
 
 # =======================
