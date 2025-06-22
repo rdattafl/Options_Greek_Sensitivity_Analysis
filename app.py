@@ -63,12 +63,92 @@ with tabs[0]:
 
     # Inline interpretation
     greek_descriptions = {
-        "Delta": "📉 **Delta** measures how much the option price changes with a $1 change in the underlying asset's price.",
-        "Gamma": "🔁 **Gamma** measures how much the Delta changes with a $1 change in the underlying asset's price (i.e., convexity of Delta).",
-        "Vega": "🌪️ **Vega** measures sensitivity of the option price to changes in implied volatility.",
-        "Theta": "⏳ **Theta** measures how much the option price decays per day, holding everything else constant.",
-        "Rho": "💰 **Rho** measures sensitivity of the option price to changes in interest rates."
+        "Delta": """
+    **Delta** measures **how much the option price moves when the underlying asset (S) changes by $1**.
+
+    - For calls, Delta is positive (0 to 1); for puts, it’s negative (-1 to 0).
+    - A Delta of 0.60 means the call option gains $0.60 if the stock rises $1.
+
+    **It increases with:**
+    - Higher spot price (S): you're more in-the-money, so the option acts more like the stock.
+    - Shorter time to expiration (T): Delta tends to 1 or 0 as expiry nears.
+
+    **It decreases with:**
+    - Deeper out-of-the-money options or longer-dated options (higher T): less sensitive to small moves in S.
+        """,
+
+        "Gamma": """
+    **Gamma** measures **how quickly Delta changes as the underlying asset (S) moves** — it’s the "Delta of Delta".
+
+    - High Gamma means Delta shifts fast — important for hedging.
+    - Gamma peaks **when the option is at-the-money**.
+
+    **It increases with:**
+    - Shorter time to maturity (T): gamma spikes near expiration.
+    - ATM options: Gamma is max when S ≈ K.
+
+    **It decreases with:**
+    - Deep ITM or OTM options: their Deltas are already near 1 or 0.
+    - Longer expiries: Delta changes more gradually.
+
+    **Why it matters:** Traders with Delta-hedged portfolios still face risk from large Gamma — i.e., needing to rebalance Delta frequently as prices move.
+        """,
+
+        "Vega": """
+    **Vega** measures **how sensitive the option price is to changes in implied volatility (σ)**.
+
+    - A Vega of 0.10 means the option price changes by $0.10 for a 1% change in volatility.
+
+    **It increases with:**
+    - Longer time to maturity (T): more time = more exposure to volatility.
+    - ATM options: they gain most from volatility increases.
+
+    **It decreases with:**
+    - Deep ITM/OTM options: their payouts are less affected by changes in volatility.
+    - As T → 0: less time to benefit from volatility.
+
+    **Why it matters:** When you buy options, you’re long Vega — higher volatility helps. When you sell options, you want volatility to stay low.
+        """,
+
+        "Theta": """
+    **Theta** measures **how much value an option loses per day as time passes** — known as **time decay**.
+
+    - A Theta of -0.05 means the option loses $0.05 in value per day (if everything else stays the same).
+
+    **It increases (more negative) with:**
+    - ATM options: they lose time value fastest.
+    - Shorter time to expiry (T): decay accelerates near expiration.
+
+    **It decreases (less negative or near 0) with:**
+    - Deep ITM or OTM options: less time value left to decay.
+    - Longer-dated options: decay is slower initially.
+
+    **Why it matters:** Option buyers fight Theta decay every day. Sellers profit from it if nothing moves.
+        """,
+
+        "Rho": """
+    **Rho** measures **how much the option price changes with a 1% change in interest rates (r)**.
+
+    - A Rho of 0.10 means the option price changes by $0.10 for a 1% rise in rates.
+
+    **For calls:**
+    - Rho is positive — rising rates increase call value.
+
+    **For puts:**
+    - Rho is negative — rising rates decrease put value.
+
+    **It increases with:**
+    - Longer time to maturity (T): more exposure to discounting effect.
+    - Deep ITM options: their intrinsic value dominates.
+
+    **It’s small/negligible when:**
+    - T is short (approaching expiry).
+    - Option is near the money or low premium.
+
+    **Why it matters:** Most relevant during macro shifts (e.g., Fed policy). Often ignored but can affect long-dated options significantly.
+        """
     }
+
 
     st.markdown(greek_descriptions[selected_greek])
 
