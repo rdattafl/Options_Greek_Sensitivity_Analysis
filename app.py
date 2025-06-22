@@ -222,7 +222,7 @@ with tabs[1]:
     show_chain = st.button("Fetch & Analyze Chain")
 
     if show_chain:
-        raw_df = fetch_chain(ticker, expiry)
+        raw_df = fetch_chain(ticker_obj, expiry)
         clean_df = clean_chain(raw_df)
         chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
 
@@ -230,7 +230,7 @@ with tabs[1]:
 
         st.write("Chain preview:", chain_with_greeks.head())
         st.write("Greeks summary:", chain_with_greeks[greek].describe())
-        
+
         fig_chain = plot_option_chain(chain_with_greeks, greek)
         st.plotly_chart(fig_chain, use_container_width=True)
 
