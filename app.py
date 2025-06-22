@@ -438,7 +438,7 @@ with tabs[2]:
 # Tab 4: Trade Scanner 
 # =======================
 with tabs[3]:
-    st.header("Options Signal Scanner")
+    st.header("Options Signal Scanner test")
 
     st.markdown(
         "Scan a ticker (or 1–5 tickers) for **IV skew, IV > HV mispricing, "
