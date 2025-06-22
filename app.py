@@ -5,12 +5,9 @@
 import streamlit as st
 import numpy as np
 from greeks_calculator import price, delta, gamma, vega, theta, rho
-from utils import fetch_chain, clean_chain, add_greeks_to_chain, simulate_strategy
+from utils import fetch_chain, calculate_strategy_payoff
 from plot_helpers import (
-    plot_greeks_surface, plot_greeks_2d,
-    plot_option_chain, plot_chain_overlay,
-    plot_strategy_exposure, plot_pnl_surface,
-    plot_trade_scanner_table
+    plot_greeks_surface, plot_strategy_payoff
 )
 import yfinance as yf
 import pandas as pd
@@ -117,7 +114,7 @@ with tabs[0]:
     **Delta** measures **how much the option price moves when the underlying asset (S) changes by $1**.
 
     - For calls, Delta is positive (0 to 1); for puts, it’s negative (-1 to 0).
-    - A Delta of 0.60 means the call option gains $0.60 if the stock rises $1.
+    - A Delta of 0.60 means the call option gains 60 cents if the stock rises 1 dollar.
 
     **It increases with:**
     - Higher spot price (S): you're more in-the-money, so the option acts more like the stock.
@@ -205,7 +202,7 @@ with tabs[0]:
 # Tab 2: Chain Analyzer
 # =======================
 with tabs[1]:
-    st.header("📈 Real Options Chain Analyzer")
+    st.header("Real Options Chain Analyzer")
 
     ticker = st.text_input("Enter Stock Ticker", value="AAPL").upper()
 
@@ -306,3 +303,74 @@ with tabs[1]:
         """)
         weird_df = df[df["weird"]].sort_values(by="spread_pct", ascending=False)
         st.dataframe(weird_df[["contractSymbol", "option_type", "strike", "bid", "ask", "mid", "volume", "spread_pct"]].head(10))
+
+# --- Tab 3: Strategy Simulator (in app.py) ---
+
+with tabs[2]:
+    st.header("Options Strategy Simulator")
+
+    st.markdown("Enter multiple option legs to build your custom options strategy. "
+                "The payoff diagram and key metrics will update automatically.")
+
+    ticker_sim = st.text_input("Ticker Symbol", value="AAPL")
+    try:
+        ticker_obj_sim = yf.Ticker(ticker_sim)
+        expiries_sim = ticker_obj_sim.options
+    except Exception:
+        st.error("Could not load option expirations.")
+        st.stop()
+
+    expiry_sim = st.selectbox("Select Expiration", expiries_sim)
+
+    st.subheader("Add Option Legs")
+
+    if "legs" not in st.session_state:
+        st.session_state.legs = []
+
+    with st.form("leg_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            opt_type = st.selectbox("Option Type", ["Call", "Put"])
+        with col2:
+            action = st.selectbox("Action", ["Buy", "Sell"])
+        with col3:
+            qty = st.number_input("Quantity", min_value=1, value=1, step=1)
+
+        strike = st.number_input("Strike Price", min_value=0.0, value=100.0, step=1.0)
+        price = st.number_input("Premium (optional)", min_value=0.0, value=0.0, step=0.01)
+
+        submitted = st.form_submit_button("Add Leg")
+        if submitted:
+            leg = {
+                "type": opt_type.lower(),
+                "action": action.lower(),
+                "strike": strike,
+                "qty": qty,
+                "price": price,
+                "expiry": expiry_sim
+            }
+            st.session_state.legs.append(leg)
+
+    # Show current strategy legs
+    if st.session_state.legs:
+        st.subheader("Current Strategy Legs")
+        st.dataframe(pd.DataFrame(st.session_state.legs))
+
+        # Input for current spot price
+        spot_price = st.number_input("Current Spot Price", min_value=0.0, value=100.0, step=0.5)
+
+        # Calculate payoff and metrics
+        payoff_df, metrics = calculate_strategy_payoff(
+            st.session_state.legs, spot_price, r
+        )
+
+        # Plot
+        fig = plot_strategy_payoff(payoff_df)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("Key Metrics")
+        st.write(metrics)
+
+    if st.button("Reset Strategy"):
+        st.session_state.legs = []
+
