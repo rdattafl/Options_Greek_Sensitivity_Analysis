@@ -227,6 +227,10 @@ with tabs[1]:
         chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
 
         greek = st.selectbox("Plot Greek vs Strike", ["delta", "gamma", "theta", "vega", "rho"])
+
+        st.write("Chain preview:", chain_with_greeks.head())
+        st.write("Greeks summary:", chain_with_greeks[greek].describe())
+        
         fig_chain = plot_option_chain(chain_with_greeks, greek)
         st.plotly_chart(fig_chain, use_container_width=True)
 
