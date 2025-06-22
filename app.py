@@ -222,7 +222,7 @@ with tabs[1]:
     show_chain = st.button("Fetch & Analyze Chain")
 
     if show_chain:
-        raw_df = fetch_chain(ticker_obj, expiry)
+        raw_df = fetch_chain(ticker, expiry)
         clean_df = clean_chain(raw_df)
         chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
 
