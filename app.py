@@ -52,20 +52,36 @@ with tabs[0]:
     sigma_vals = np.linspace(0.05, 1.0, 40)
     T_vals = np.linspace(0.01, 2.0, 40)
 
-    if mesh_choice == "S vs σ":
-        X, Y = np.meshgrid(s_vals, sigma_vals)
-        Z = delta(X, K, T, Y, r, q, option_type)
-        fig = plot_greeks_surface(X, Y, Z, "S", "σ", "Delta")
-    elif mesh_choice == "S vs T":
-        X, Y = np.meshgrid(s_vals, T_vals)
-        Z = gamma(X, K, Y, sigma, r, q)
-        fig = plot_greeks_surface(X, Y, Z, "S", "T", "Gamma")
-    elif mesh_choice == "σ vs T":
-        X, Y = np.meshgrid(sigma_vals, T_vals)
-        Z = vega(S, K, Y, X, r, q)
-        fig = plot_greeks_surface(X, Y, Z, "σ", "T", "Vega")
+if mesh_choice == "S vs σ":
+    X, Y = np.meshgrid(s_vals, sigma_vals)
+    st.subheader("Meshgrid: Spot Price (S) vs Volatility (σ)")
+    
+    st.plotly_chart(plot_greeks_surface(X, Y, delta(X, K, T, Y, r, q, option_type), "S", "σ", "Delta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, gamma(X, K, T, Y, r, q), "S", "σ", "Gamma"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, vega(X, K, T, Y, r, q), "S", "σ", "Vega"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, theta(X, K, T, Y, r, q, option_type), "S", "σ", "Theta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, rho(X, K, T, Y, r, q, option_type), "S", "σ", "Rho"), use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
+elif mesh_choice == "S vs T":
+    X, Y = np.meshgrid(s_vals, T_vals)
+    st.subheader("Meshgrid: Spot Price (S) vs Time to Maturity (T)")
+
+    st.plotly_chart(plot_greeks_surface(X, Y, delta(X, K, Y, sigma, r, q, option_type), "S", "T", "Delta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, gamma(X, K, Y, sigma, r, q), "S", "T", "Gamma"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, vega(X, K, Y, sigma, r, q), "S", "T", "Vega"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, theta(X, K, Y, sigma, r, q, option_type), "S", "T", "Theta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, rho(X, K, Y, sigma, r, q, option_type), "S", "T", "Rho"), use_container_width=True)
+
+elif mesh_choice == "σ vs T":
+    X, Y = np.meshgrid(sigma_vals, T_vals)
+    st.subheader("Meshgrid: Volatility (σ) vs Time to Maturity (T)")
+
+    st.plotly_chart(plot_greeks_surface(X, Y, delta(S, K, Y, X, r, q, option_type), "σ", "T", "Delta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, gamma(S, K, Y, X, r, q), "σ", "T", "Gamma"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, vega(S, K, Y, X, r, q), "σ", "T", "Vega"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, theta(S, K, Y, X, r, q, option_type), "σ", "T", "Theta"), use_container_width=True)
+    st.plotly_chart(plot_greeks_surface(X, Y, rho(S, K, Y, X, r, q, option_type), "σ", "T", "Rho"), use_container_width=True)
+
 
     st.subheader("Current Greeks at Selected Point")
     st.write({
