@@ -498,6 +498,7 @@ with tabs[3]:
             st.dataframe(result_df, use_container_width=True)
 
             full_df = pd.concat(all_contracts, ignore_index=True)  # every contract scanned
+            st.dataframe(full_df, use_container_width=True)
 
             # -------- plots ----------
             with st.expander("Visualisations", expanded=False):
