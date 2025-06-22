@@ -463,6 +463,7 @@ with tabs[3]:
 
     if scan_btn:
         all_flags = []
+        all_contracts = []
         with st.spinner("Fetching option chains & price history…"):
             for tk in ticker_list:
                 # 1️⃣ pull option chain
@@ -474,6 +475,8 @@ with tabs[3]:
 
                 # 3️⃣ compute skew z-scores
                 chain_df  = compute_skew(chain_df)
+                chain_df["iv_hv_ratio"] = chain_df["iv"] / hv_20d
+                all_contracts.append(chain_df.assign(Ticker=tk))
 
                 # 4️⃣ tag signals
                 cfg = {
@@ -494,14 +497,32 @@ with tabs[3]:
             st.subheader("Flagged contracts")
             st.dataframe(result_df, use_container_width=True)
 
+            full_df = pd.concat(all_contracts, ignore_index=True)  # every contract scanned
+
             # -------- plots ----------
             with st.expander("Visualisations", expanded=False):
-                st.plotly_chart(plot_iv_skew(result_df), use_container_width=True)
+                st.plotly_chart(plot_iv_skew(full_df), use_container_width=True)
+                st.caption(
+                    "• **IV skew by strike** – Implied vol vs strike; colour = z-score "
+                    "relative to its expiry/type mean.  Extreme wings (dark red/blue) "
+                    "signal skew opportunities."
+                )
+
                 st.plotly_chart(
-                    plot_iv_hv_scatter(result_df, ratio_thresh=iv_hv_thresh / 100),
+                    plot_iv_hv_scatter(full_df, ratio_thresh=iv_hv_thresh / 100),
                     use_container_width=True,
                 )
+                st.caption(
+                    f"• **IV / HV mispricing** – Each dot is an option.  Dots right of the "
+                    f"red line trade at ≥ {iv_hv_thresh}% of realised vol (rich); grey dots "
+                    "are fair or cheap."
+                )
+
                 st.plotly_chart(plot_volume_spikes(result_df), use_container_width=True)
+                st.caption(
+                    "• **Volume spike multiples** – Bars show today's volume relative to "
+                    "a baseline (≈ OI/10).  Tall bars flag unusual activity worth a closer look."
+                )
 
             # -------- CSV download ----
             csv = result_df.to_csv(index=False).encode()

@@ -102,40 +102,39 @@ def plot_iv_skew(df: pd.DataFrame) -> go.Figure:
 
 def plot_iv_hv_scatter(df: pd.DataFrame, ratio_thresh: float = 1.2) -> go.Figure:
     """
-    Scatter of (IV / HV) ratio vs IV.
-    Points right of the vertical line are overpriced relative to realised vol.
+    Scatter of IV/HV ratio (x) vs IV (y).
+    Points to the right of the red line are overpriced ≥ ratio_thresh.
     """
+    import numpy as np
+    import plotly.graph_objects as go
+
     if df.empty:
         return go.Figure()
 
-    fig = go.Figure()
+    # Use a colour map: grey if cheap/fair, orange if rich
+    colours = np.where(df["iv_hv_ratio"] >= ratio_thresh, "orange", "lightgrey")
 
-    # compute ratio once so we can reuse
-    ratio = df["iv_hv_ratio"]
-    iv    = df["iv"]
-
-    fig.add_trace(
-        go.Scatter(
-            x=ratio,
-            y=iv,
+    fig = go.Figure(
+        data=go.Scatter(
+            x=df["iv_hv_ratio"],
+            y=df["iv"],
             mode="markers",
-            marker=dict(size=8, color="darkorange"),
+            marker=dict(size=8, color=colours),
             text=df.apply(
                 lambda r: f"{r['dte']}d {r['type'][0].upper()} {r['strike']}", axis=1
             ),
             hovertemplate="IV/HV: %{x:.2f}<br>IV: %{y:.2%}<br>%{text}",
-            name="Contracts",
         )
     )
 
-    # vertical reference line at threshold
+    # vertical reference = threshold
     fig.add_shape(
         type="line",
         x0=ratio_thresh,
-        y0=0,
         x1=ratio_thresh,
-        y1=max(iv) * 1.05,
-        line=dict(dash="dot", width=2, color="red"),
+        y0=0,
+        y1=max(df["iv"]) * 1.05,
+        line=dict(color="red", dash="dot"),
     )
 
     fig.update_layout(
@@ -143,25 +142,5 @@ def plot_iv_hv_scatter(df: pd.DataFrame, ratio_thresh: float = 1.2) -> go.Figure
         xaxis_title="IV ÷ HV  (ratio)",
         yaxis_title="IV",
         showlegend=False,
-    )
-    return fig
-
-
-def plot_volume_spikes(df: pd.DataFrame) -> go.Figure:
-    """
-    Bar chart of volume multiples for flagged contracts.
-    """
-    fig = go.Figure(
-        data=go.Bar(
-            x=df.apply(_contract_code, axis=1),
-            y=df["vol_mult"],
-            marker_color="seagreen",
-            hovertemplate="Vol mult: %{y:.1f}<br>%{x}",
-        )
-    )
-    fig.update_layout(
-        title="Volume spike multiples",
-        xaxis_title="Contract",
-        yaxis_title="Volume / baseline",
     )
     return fig
