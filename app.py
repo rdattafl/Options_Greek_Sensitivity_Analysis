@@ -14,6 +14,7 @@ from plot_helpers import (
 )
 import yfinance as yf
 import pandas as pd
+import plotly.express as px
 import json
 
 st.set_page_config(page_title="Options Risk Diagnostics", layout="wide")
@@ -235,3 +236,64 @@ with tabs[1]:
             st.dataframe(full_chain)
         except Exception as e:
             st.error(f"Failed to fetch option chain: {e}")
+
+        raw_df = fetch_chain(ticker, expiry)
+
+        if raw_df.empty:
+            st.warning("Fetched option chain is empty.")
+            st.stop()
+
+        df = raw_df.copy()
+
+        # Fetch spot price
+        spot_data = ticker_obj.history(period="1d")
+        spot = spot_data["Close"].iloc[-1] if not spot_data.empty else None
+        if spot is None:
+            st.error("Could not fetch current spot price.")
+            st.stop()
+
+        st.write(f"Current Spot Price: **${spot:.2f}**")
+
+        # Calculate mid, spread, IV placeholder if missing
+        df["mid"] = (df["bid"] + df["ask"]) / 2
+        df["spread"] = df["ask"] - df["bid"]
+        df["spread_pct"] = df["spread"] / df["mid"].replace(0, np.nan)
+
+        # Determine ITM/OTM
+        df["ITM"] = ((df["option_type"] == "call") & (df["strike"] < spot)) | \
+                    ((df["option_type"] == "put") & (df["strike"] > spot))
+        df["dist_from_spot(%)"] = 100 * (df["strike"] - spot) / spot
+        df["break_even"] = np.where(df["option_type"] == "call",
+                                    df["strike"] + df["mid"],
+                                    df["strike"] - df["mid"])
+
+        # Flag weird contracts
+        df["weird"] = (df["mid"] <= 0) | (df["bid"] > df["ask"]) | (df["spread_pct"] > 0.5)
+
+        # Section 1: Liquid contracts
+        st.subheader("Most Liquid Contracts (Sorted by Volume and Spread Tightness)")
+        liquid = df[(df["volume"] > 0) & (df["openInterest"] > 0)].copy()
+        liquid = liquid.sort_values(by=["volume", "spread_pct"], ascending=[False, True])
+        st.dataframe(liquid[["contractSymbol", "option_type", "strike", "volume", "openInterest", "bid", "ask", "spread_pct"]].head(10))
+
+        # Section 2: IV Skew
+        if "impliedVolatility" in df.columns and df["impliedVolatility"].notnull().any():
+            st.subheader("Implied Volatility Skew")
+            fig_iv = px.line(df, x="strike", y="impliedVolatility", color="option_type",
+                             title="Implied Volatility vs Strike", markers=True)
+            st.plotly_chart(fig_iv, use_container_width=True)
+
+        # Section 3: ITM vs OTM
+        st.subheader("In-The-Money (ITM) vs Out-of-The-Money (OTM) Options")
+        itm_df = df[df["ITM"]].sort_values(by="strike")
+        otm_df = df[~df["ITM"]].sort_values(by="strike")
+        st.markdown("**ITM Contracts:**")
+        st.dataframe(itm_df[["contractSymbol", "option_type", "strike", "mid", "break_even", "dist_from_spot(%)"]].head(10))
+        st.markdown("**OTM Contracts:**")
+        st.dataframe(otm_df[["contractSymbol", "option_type", "strike", "mid", "break_even", "dist_from_spot(%)"]].head(10))
+
+        # Section 4: Weird Contracts
+        st.subheader("Weirdly Priced or Illiquid Contracts")
+        weird_df = df[df["weird"]].sort_values(by="spread_pct", ascending=False)
+        st.dataframe(weird_df[["contractSymbol", "option_type", "strike", "bid", "ask", "mid", "volume", "spread_pct"]].head(10))
+

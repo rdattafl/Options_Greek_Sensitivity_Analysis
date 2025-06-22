@@ -8,33 +8,18 @@ from typing import List, Dict
 from greeks_calculator import price, delta, gamma, vega, theta, rho
 
 def fetch_chain(ticker: str, expiry: str) -> pd.DataFrame:
-    """Fetch the option chain for a given ticker and expiry."""
-    if not isinstance(ticker, str):
-        ticker = str(ticker)
+    ticker_obj = yf.Ticker(ticker)
+    chain = ticker_obj.option_chain(expiry)
+    calls = chain.calls.copy()
+    puts = chain.puts.copy()
 
-    try:
-        ticker_obj = yf.Ticker(ticker)
-        chain = ticker_obj.option_chain(expiry)
+    calls["option_type"] = "call"
+    puts["option_type"] = "put"
 
-        calls = chain.calls.copy()
-        puts = chain.puts.copy()
-
-        if calls.empty and puts.empty:
-            return pd.DataFrame()
-
-        calls['option_type'] = 'call'
-        puts['option_type'] = 'put'
-
-        df = pd.concat([calls, puts], axis=0)
-        df['expiry'] = expiry
-        df['ticker'] = ticker
-        df.reset_index(drop=True, inplace=True)
-        return df
-
-    except Exception as e:
-        print(f"Error fetching chain: {e}")
-        return pd.DataFrame()
-
+    df = pd.concat([calls, puts], ignore_index=True)
+    df["expiry"] = expiry
+    df["ticker"] = ticker
+    return df
 
 def clean_chain(df: pd.DataFrame) -> pd.DataFrame:
     """Clean raw option chain data and filter for usable rows."""
