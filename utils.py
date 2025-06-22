@@ -194,13 +194,20 @@ def calc_hv(price_ser: pd.Series, window: int = 20) -> float:
     """
     Annualised historical (realised) volatility using daily log-returns.
     """
-    price_ser = price_ser.dropna()
-    if len(price_ser) < window + 1:     # not enough data
-        return float("nan")
+    price_ser = price_ser.dropna()             # remove NaNs
+
+    # need at least (window + 1) prices to compute `window` returns
+    if len(price_ser) < window + 1:
+        return np.nan
 
     log_r = np.log(price_ser / price_ser.shift()).dropna()
-    hv = log_r.rolling(window).std(ddof=0).iloc[-1] * np.sqrt(252)
-    return float(hv) if pd.notna(hv) else float("nan")
+    hv_series = log_r.rolling(window).std(ddof=0).dropna()
+
+    if hv_series.empty:
+        return np.nan
+
+    hv_scalar = hv_series.iloc[-1] * np.sqrt(252)   # annualise
+    return float(hv_scalar)
 
 
 def compute_skew(chain_df: pd.DataFrame) -> pd.DataFrame:

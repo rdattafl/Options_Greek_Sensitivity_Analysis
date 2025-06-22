@@ -475,10 +475,7 @@ with tabs[3]:
 
                 # 3️⃣ compute skew z-scores
                 chain_df  = compute_skew(chain_df)
-                if np.isfinite(hv_20d) and hv_20d > 0:
-                    chain_df["iv_hv_ratio"] = chain_df["iv"] / hv_20d
-                else:
-                    chain_df["iv_hv_ratio"] = np.nan  
+                chain_df["iv_hv_ratio"] = chain_df["iv"] / hv_20d if np.isfinite(hv_20d) and hv_20d > 0 else np.nan
                 all_contracts.append(chain_df.assign(Ticker=tk))
 
                 # 4️⃣ tag signals
