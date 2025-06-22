@@ -143,6 +143,7 @@ def get_option_chain(ticker: str, window: str) -> pd.DataFrame:
                 .assign(expiry=exp, type=typ)
                 .rename(columns={"impliedvolatility": "iv"})
             )
+            dfe["iv"] = pd.to_numeric(dfe["iv"], errors="coerce")
             frames.append(dfe)
 
     if not frames:
@@ -193,8 +194,13 @@ def calc_hv(price_ser: pd.Series, window: int = 20) -> float:
     """
     Annualised historical (realised) volatility using daily log-returns.
     """
-    log_r = np.log(price_ser / price_ser.shift())
-    return log_r.rolling(window).std().iloc[-1] * np.sqrt(252)
+    price_ser = price_ser.dropna()
+    if len(price_ser) < window + 1:     # not enough data
+        return float("nan")
+
+    log_r = np.log(price_ser / price_ser.shift()).dropna()
+    hv = log_r.rolling(window).std(ddof=0).iloc[-1] * np.sqrt(252)
+    return float(hv) if pd.notna(hv) else float("nan")
 
 
 def compute_skew(chain_df: pd.DataFrame) -> pd.DataFrame:

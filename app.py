@@ -475,7 +475,10 @@ with tabs[3]:
 
                 # 3️⃣ compute skew z-scores
                 chain_df  = compute_skew(chain_df)
-                chain_df["iv_hv_ratio"] = chain_df["iv"] / hv_20d
+                if np.isfinite(hv_20d) and hv_20d > 0:
+                    chain_df["iv_hv_ratio"] = chain_df["iv"] / hv_20d
+                else:
+                    chain_df["iv_hv_ratio"] = np.nan  
                 all_contracts.append(chain_df.assign(Ticker=tk))
 
                 # 4️⃣ tag signals
@@ -498,6 +501,7 @@ with tabs[3]:
             st.dataframe(result_df, use_container_width=True)
 
             full_df = pd.concat(all_contracts, ignore_index=True)  # every contract scanned
+            full_df = full_df.dropna(subset=["iv", "iv_hv_ratio"])
             st.dataframe(full_df, use_container_width=True)
 
             # -------- plots ----------
