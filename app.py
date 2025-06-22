@@ -223,19 +223,3 @@ with tabs[3]:
         plot_trade_scanner_table(filtered)
     else:
         st.warning("Load option chain in Tab 2 before scanning.")
-
-# =======================
-# Tab 5: Glossary
-# =======================
-with tabs[4]:
-    st.header("Glossary & Interpretation")
-    st.markdown("""
-    **Delta**: Sensitivity of option price to underlying price movement.  
-    **Gamma**: Sensitivity of Delta to price movement.  
-    **Vega**: Sensitivity to volatility changes.  
-    **Theta**: Time decay — how much the option loses daily.  
-    **Rho**: Sensitivity to interest rate changes.  
-
-    All Greeks are dynamic — they evolve with price, volatility, and time. Use the Explorer tab to build intuition.  
-    """)
-
