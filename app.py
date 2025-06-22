@@ -206,12 +206,18 @@ with tabs[0]:
 with tabs[1]:
     st.header("Real Options Chain Analyzer")
 
-    # Fetch valid expiries for this ticker
-    ticker_obj = yf.Ticker(ticker)
+    ticker_input = st.text_input("Enter Ticker Symbol", value="AAPL").upper()
+    
+    # Defensive check
+    if not ticker_input:
+        st.warning("Please enter a valid ticker symbol.")
+        st.stop()
+
     try:
+        ticker_obj = yf.Ticker(ticker_input)
         valid_expiries = ticker_obj.options
-    except Exception:
-        st.error("Could not fetch options data for this ticker.")
+    except Exception as e:
+        st.error(f"Could not fetch options data for this ticker: {e}")
         st.stop()
 
     if not valid_expiries:
@@ -219,32 +225,56 @@ with tabs[1]:
         st.stop()
 
     expiry = st.selectbox("Select Expiry Date", valid_expiries, index=0)
-    show_chain = st.button("Fetch & Analyze Chain")
 
-    if show_chain:
-        raw_df = fetch_chain(ticker, expiry)
+    # Automatically fetch chain when expiry or ticker changes
+    try:
+        raw_df = fetch_chain(ticker_input, expiry)
+
+        if raw_df.empty:
+            st.warning("Fetched option chain is empty. This may happen if the ticker is illiquid or delisted.")
+            st.stop()
+
         clean_df = clean_chain(raw_df)
         chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
 
         greek = st.selectbox("Plot Greek vs Strike", ["delta", "gamma", "theta", "vega", "rho"])
 
-        st.write("Chain preview:", chain_with_greeks.head())
-        st.write("Greeks summary:", chain_with_greeks[greek].describe())
+        st.subheader("Chain Preview")
+        st.dataframe(chain_with_greeks.head())
+
+        st.subheader(f"{greek.title()} Summary")
+        st.write(chain_with_greeks[greek].describe())
 
         fig_chain = plot_option_chain(chain_with_greeks, greek)
         st.plotly_chart(fig_chain, use_container_width=True)
 
         if st.checkbox("Overlay Theoretical Model"):
+            S_overlay = st.slider("Spot Price for Model", 50, 300, 150)
             K_vals = chain_with_greeks["strike"].values
             T_vals = chain_with_greeks["T"].values
             σ_vals = chain_with_greeks["impliedVolatility"].values
-            model_vals = delta(S, K_vals, T_vals, σ_vals, r, q)
+
+            if greek == "delta":
+                model_vals = delta(S_overlay, K_vals, T_vals, σ_vals, r, q)
+            elif greek == "gamma":
+                model_vals = gamma(S_overlay, K_vals, T_vals, σ_vals, r, q)
+            elif greek == "vega":
+                model_vals = vega(S_overlay, K_vals, T_vals, σ_vals, r, q)
+            elif greek == "theta":
+                model_vals = theta(S_overlay, K_vals, T_vals, σ_vals, r, q, option_type="call")  # could make this toggleable
+            elif greek == "rho":
+                model_vals = rho(S_overlay, K_vals, T_vals, σ_vals, r, q, option_type="call")
+
             overlay_fig = plot_chain_overlay(
                 K_vals, model_vals,
-                K_vals, chain_with_greeks[greek.lower()].values,
+                K_vals, chain_with_greeks[greek].values,
                 greek
             )
             st.plotly_chart(overlay_fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Error processing option chain: {e}")
+
 
 # =======================
 # Tab 3: Strategy Simulator
