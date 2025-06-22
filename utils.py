@@ -175,7 +175,7 @@ def fetch_hist_prices(ticker: str, lookback: int = 60) -> pd.Series:
     """
     Download `lookback` trading days of historical prices; return close series.
     """
-    df = yf.download(ticker, period=f"{lookback}d", progress=False)
+    df = yf.download(ticker, period=f"{lookback}d", progress=False, auto_adjust=True)
     return df["Adj Close"]
 
 
