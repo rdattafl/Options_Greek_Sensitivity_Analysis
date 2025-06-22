@@ -308,7 +308,7 @@ with tabs[1]:
 # Tab 3: Strategy Simulator
 # =======================
 with tabs[2]:
-    st.header("Options Strategy Simulator test")
+    st.header("Options Strategy Simulator")
 
     st.markdown(
         "Build a custom multi-leg options strategy, add an underlying stock hedge, "
