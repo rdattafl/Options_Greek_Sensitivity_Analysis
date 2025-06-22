@@ -12,7 +12,7 @@ from plot_helpers import (
     plot_strategy_exposure, plot_pnl_surface,
     plot_trade_scanner_table
 )
-from datetime import datetime
+import yfinance as yf
 
 st.set_page_config(page_title="Options Risk Diagnostics", layout="wide")
 
@@ -124,7 +124,20 @@ with tabs[0]:
 # =======================
 with tabs[1]:
     st.header("Real Options Chain Analyzer")
-    expiry = st.text_input("Expiry Date (YYYY-MM-DD)", value=str(datetime.now().strftime("%Y%m%d")))
+
+    # Fetch valid expiries for this ticker
+    ticker_obj = yf.Ticker(ticker)
+    try:
+        valid_expiries = ticker_obj.options
+    except Exception:
+        st.error("Could not fetch options data for this ticker.")
+        st.stop()
+
+    if not valid_expiries:
+        st.error("No available option expirations for this ticker.")
+        st.stop()
+
+    expiry = st.selectbox("Select Expiry Date", valid_expiries, index=0)
     show_chain = st.button("Fetch & Analyze Chain")
 
     if show_chain:
@@ -132,7 +145,7 @@ with tabs[1]:
         clean_df = clean_chain(raw_df)
         chain_with_greeks = add_greeks_to_chain(clean_df, r, q)
 
-        greek = st.selectbox("Plot Greek vs Strike", ["Delta", "Gamma", "Theta", "Vega", "Rho"])
+        greek = st.selectbox("Plot Greek vs Strike", ["delta", "gamma", "theta", "vega", "rho"])
         fig_chain = plot_option_chain(chain_with_greeks, greek)
         st.plotly_chart(fig_chain, use_container_width=True)
 
