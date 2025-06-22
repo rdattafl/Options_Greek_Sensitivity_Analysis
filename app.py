@@ -499,7 +499,6 @@ with tabs[3]:
 
             full_df = pd.concat(all_contracts, ignore_index=True)  # every contract scanned
             full_df = full_df.dropna(subset=["iv", "iv_hv_ratio"])
-            st.dataframe(full_df, use_container_width=True)
 
             # -------- plots ----------
             with st.expander("Visualisations", expanded=False):
