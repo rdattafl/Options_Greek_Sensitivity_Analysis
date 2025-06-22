@@ -55,7 +55,7 @@ def clean_chain(df: pd.DataFrame) -> pd.DataFrame:
 
     # Remove very deep ITM/OTM (keep within +/- 30% moneyness)
     spot = df['lastPrice'].median() * 1.25  # crude spot proxy if not provided
-    df = df[(df['strike'] > 0.7 * spot) & (df['strike'] < 1.3 * spot)]
+    # df = df[(df['strike'] > 0.7 * spot) & (df['strike'] < 1.3 * spot)]
 
     return df
 
