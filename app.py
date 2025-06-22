@@ -5,9 +5,11 @@
 import streamlit as st
 import numpy as np
 from greeks_calculator import price, delta, gamma, vega, theta, rho
-from utils import fetch_chain, calculate_strategy_payoff
+from utils import (fetch_chain, calculate_strategy_payoff, get_option_chain,
+    fetch_hist_prices, calc_hv, compute_skew, tag_signals)
 from plot_helpers import (
-    plot_greeks_surface, plot_strategy_payoff
+    plot_greeks_surface, plot_strategy_payoff, plot_iv_skew,
+    plot_iv_hv_scatter, plot_volume_spikes
 )
 import yfinance as yf
 import pandas as pd
@@ -431,3 +433,75 @@ with tabs[2]:
 
     if st.button("Reset Strategy"):
         st.session_state.legs = []
+
+# =======================
+# Tab 4: Trade Scanner 
+# =======================
+with tabs[3]:
+    st.header("Options Signal Scanner")
+
+    st.markdown(
+        "Scan a ticker (or 1–5 tickers) for **IV skew, IV > HV mispricing, "
+        "and unusual volume / open-interest activity.**"
+    )
+
+    # ---------------- primary controls ----------------
+    tickers_input = st.text_input(
+        "Ticker(s) – comma-separated", value="AAPL", help="1–5 symbols max"
+    )
+    ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()][:5]
+
+    expiry_window = st.selectbox(
+        "Expiry window",
+        ("Next weekly", "Next monthly", "All ≤ 45 DTE"),
+    )
+    skew_z_thresh = st.number_input("Skew |z| threshold", value=1.5, step=0.1)
+    iv_hv_thresh  = st.slider("IV / HV threshold (%)", 100, 300, 120, step=5)
+    vol_mult_thresh = st.slider("Volume multiple vs baseline", 1, 10, 3, step=1)
+
+    scan_btn = st.button("Scan")
+
+    if scan_btn:
+        all_flags = []
+        with st.spinner("Fetching option chains & price history…"):
+            for tk in ticker_list:
+                # 1️⃣ pull option chain
+                chain_df = get_option_chain(tk, expiry_window)
+
+                # 2️⃣ fetch recent prices & realised vol
+                price_ser = fetch_hist_prices(tk)
+                hv_20d    = calc_hv(price_ser)
+
+                # 3️⃣ compute skew z-scores
+                chain_df  = compute_skew(chain_df)
+
+                # 4️⃣ tag signals
+                cfg = {
+                    "skew_z": skew_z_thresh,
+                    "iv_hv":  iv_hv_thresh / 100,
+                    "vol_mult": vol_mult_thresh,
+                    "hv": hv_20d,
+                }
+                flagged = tag_signals(chain_df, cfg)
+                if not flagged.empty:
+                    flagged["Ticker"] = tk
+                    all_flags.append(flagged)
+
+        if not all_flags:
+            st.info("No contracts met your criteria. Try relaxing thresholds.")
+        else:
+            result_df = pd.concat(all_flags, ignore_index=True)
+            st.subheader("Flagged contracts")
+            st.dataframe(result_df, use_container_width=True)
+
+            # -------- plots ----------
+            with st.expander("Visualisations", expanded=False):
+                st.plotly_chart(plot_iv_skew(result_df), use_container_width=True)
+                st.plotly_chart(plot_iv_hv_scatter(result_df), use_container_width=True)
+                st.plotly_chart(plot_volume_spikes(result_df), use_container_width=True)
+
+            # -------- CSV download ----
+            csv = result_df.to_csv(index=False).encode()
+            st.download_button(
+                "Download CSV", csv, "signal_scanner_results.csv", "text/csv"
+            )

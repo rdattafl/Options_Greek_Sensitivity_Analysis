@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict
 from greeks_calculator import price, delta, gamma, vega, theta, rho
+import streamlit as st
+from datetime import datetime, timezone
 
 def fetch_chain(ticker: str, expiry: str) -> pd.DataFrame:
     ticker_obj = yf.Ticker(ticker)
@@ -102,3 +104,127 @@ def calculate_strategy_payoff(
     }
 
     return payoff_df, metrics
+
+
+# -------------------------------------------
+# caching wrappers
+# -------------------------------------------
+@st.cache_data(ttl=600, show_spinner=False)
+def get_option_chain(ticker: str, window: str) -> pd.DataFrame:
+    """
+    Fetch option chain for `ticker` and return a tidy DataFrame.
+    `window` ∈ {"Next weekly", "Next monthly", "All ≤ 45 DTE"}.
+    """
+    tk = yf.Ticker(ticker)
+    today = datetime.now(timezone.utc).date()
+
+    def _dte(exp_str: str) -> int:
+        return (datetime.strptime(exp_str, "%Y-%m-%d").date() - today).days
+
+    # pick expiries
+    all_exps = tk.options
+    if window == "All ≤ 45 DTE":
+        expiries = [e for e in all_exps if _dte(e) <= 45]
+    elif window == "Next weekly":
+        expiries = [all_exps[0]] if all_exps else []
+    else:  # next monthly = 3rd Friday heuristic → pick first ≥ 21 dte
+        expiries = []
+        for e in all_exps:
+            if _dte(e) >= 21:
+                expiries.append(e)
+                break
+
+    frames = []
+    for exp in expiries:
+        oc = tk.option_chain(exp)
+        for df, typ in [(oc.calls, "call"), (oc.puts, "put")]:
+            dfe = (
+                df.rename(columns=str.lower)
+                .assign(expiry=exp, type=typ)
+                .rename(columns={"impliedvolatility": "iv"})
+            )
+            frames.append(dfe)
+
+    if not frames:
+        return pd.DataFrame()
+
+    chain = pd.concat(frames, ignore_index=True)
+    chain["dte"] = chain["expiry"].apply(lambda x: _dte(str(x)))
+    # keep minimal cols
+    keep = [
+        "strike",
+        "type",
+        "dte",
+        "iv",
+        "lastprice",
+        "bid",
+        "ask",
+        "volume",
+        "openinterest",
+    ]
+    return chain[keep].rename(
+        columns={
+            "lastprice": "last",
+            "openinterest": "oi",
+        }
+    )
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_hist_prices(ticker: str, lookback: int = 60) -> pd.Series:
+    """
+    Download `lookback` trading days of historical prices; return close series.
+    """
+    df = yf.download(ticker, period=f"{lookback}d", progress=False)
+    return df["Adj Close"]
+
+
+def calc_hv(price_ser: pd.Series, window: int = 20) -> float:
+    """
+    Annualised historical (realised) volatility using daily log-returns.
+    """
+    log_r = np.log(price_ser / price_ser.shift())
+    return log_r.rolling(window).std().iloc[-1] * np.sqrt(252)
+
+
+def compute_skew(chain_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add column 'skew_z': z-score of IV within each expiry/type bucket.
+    """
+    if chain_df.empty:
+        return chain_df
+
+    def _z(grp):
+        return (grp - grp.mean()) / grp.std(ddof=0)
+
+    chain_df["skew_z"] = chain_df.groupby(["dte", "type"])["iv"].transform(_z)
+    chain_df["abs_skew_z"] = chain_df["skew_z"].abs()
+    return chain_df
+
+
+def tag_signals(chain_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """
+    Apply thresholds & return only flagged rows.
+    cfg keys: skew_z, iv_hv, vol_mult, hv
+    """
+    if chain_df.empty:
+        return chain_df
+
+    # simple placeholder for volume multiple: vol / (OI/10 + 1)
+    chain_df["vol_mult"] = chain_df["volume"] / (chain_df["oi"] / 10 + 1)
+
+    chain_df["iv_hv_ratio"] = chain_df["iv"] / cfg["hv"]
+
+    def _flag(row):
+        flags = []
+        if row["abs_skew_z"] >= cfg["skew_z"]:
+            flags.append("SK")
+        if row["iv_hv_ratio"] >= cfg["iv_hv"]:
+            flags.append("IV>HV")
+        if row["vol_mult"] >= cfg["vol_mult"]:
+            flags.append("VOLx")
+        return ",".join(flags)
+
+    chain_df["Flags"] = chain_df.apply(_flag, axis=1)
+    chain_df = chain_df[chain_df["Flags"] != ""]  # keep only flagged rows
+    return chain_df.reset_index(drop=True)
