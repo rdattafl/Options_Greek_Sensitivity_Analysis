@@ -52,59 +52,59 @@ with tabs[0]:
     sigma_vals = np.linspace(0.05, 1.0, 40)
     T_vals = np.linspace(0.01, 2.0, 40)
 
-selected_greek = st.radio(
-    "Select Greek to View:",
-    ["Delta", "Gamma", "Vega", "Theta", "Rho"],
-    horizontal=True
-)
+    selected_greek = st.radio(
+        "Select Greek to View:",
+        ["Delta", "Gamma", "Vega", "Theta", "Rho"],
+        horizontal=True
+    )
 
-if mesh_choice == "S vs σ":
-    X, Y = np.meshgrid(s_vals, sigma_vals)
+    if mesh_choice == "S vs σ":
+        X, Y = np.meshgrid(s_vals, sigma_vals)
 
-    if selected_greek == "Delta":
-        Z = delta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Gamma":
-        Z = gamma(X, K, T, Y, r, q)
-    elif selected_greek == "Vega":
-        Z = vega(X, K, T, Y, r, q)
-    elif selected_greek == "Theta":
-        Z = theta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Rho":
-        Z = rho(X, K, T, Y, r, q, option_type)
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
 
-    st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "σ", selected_greek), use_container_width=True)
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "σ", selected_greek), use_container_width=True)
 
-elif mesh_choice == "S vs T":
-    X, Y = np.meshgrid(s_vals, T_vals)
+    elif mesh_choice == "S vs T":
+        X, Y = np.meshgrid(s_vals, T_vals)
 
-    if selected_greek == "Delta":
-        Z = delta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Gamma":
-        Z = gamma(X, K, T, Y, r, q)
-    elif selected_greek == "Vega":
-        Z = vega(X, K, T, Y, r, q)
-    elif selected_greek == "Theta":
-        Z = theta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Rho":
-        Z = rho(X, K, T, Y, r, q, option_type)
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
 
-    st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "T", selected_greek), use_container_width=True)
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "T", selected_greek), use_container_width=True)
 
-elif mesh_choice == "σ vs T":
-    X, Y = np.meshgrid(sigma_vals, T_vals)
+    elif mesh_choice == "σ vs T":
+        X, Y = np.meshgrid(sigma_vals, T_vals)
 
-    if selected_greek == "Delta":
-        Z = delta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Gamma":
-        Z = gamma(X, K, T, Y, r, q)
-    elif selected_greek == "Vega":
-        Z = vega(X, K, T, Y, r, q)
-    elif selected_greek == "Theta":
-        Z = theta(X, K, T, Y, r, q, option_type)
-    elif selected_greek == "Rho":
-        Z = rho(X, K, T, Y, r, q, option_type)
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
 
-    st.plotly_chart(plot_greeks_surface(X, Y, Z, "σ", "T", selected_greek), use_container_width=True)
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "σ", "T", selected_greek), use_container_width=True)
 
 
     st.subheader("Current Greeks at Selected Point")
