@@ -61,6 +61,54 @@ with tabs[0]:
         horizontal=True
     )
 
+    if mesh_choice == "S vs σ":
+        X, Y = np.meshgrid(s_vals, sigma_vals)
+
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
+
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "σ", selected_greek), use_container_width=True)
+
+    elif mesh_choice == "S vs T":
+        X, Y = np.meshgrid(s_vals, T_vals)
+
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
+
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "T", selected_greek), use_container_width=True)
+
+    elif mesh_choice == "σ vs T":
+        X, Y = np.meshgrid(sigma_vals, T_vals)
+
+        if selected_greek == "Delta":
+            Z = delta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Gamma":
+            Z = gamma(X, K, T, Y, r, q)
+        elif selected_greek == "Vega":
+            Z = vega(X, K, T, Y, r, q)
+        elif selected_greek == "Theta":
+            Z = theta(X, K, T, Y, r, q, option_type)
+        elif selected_greek == "Rho":
+            Z = rho(X, K, T, Y, r, q, option_type)
+
+        st.plotly_chart(plot_greeks_surface(X, Y, Z, "σ", "T", selected_greek), use_container_width=True)
+
     # Inline interpretation
     greek_descriptions = {
         "Delta": """
@@ -150,66 +198,7 @@ with tabs[0]:
     }
 
 
-    st.markdown(greek_descriptions[selected_greek])
-
-    if mesh_choice == "S vs σ":
-        X, Y = np.meshgrid(s_vals, sigma_vals)
-
-        if selected_greek == "Delta":
-            Z = delta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Gamma":
-            Z = gamma(X, K, T, Y, r, q)
-        elif selected_greek == "Vega":
-            Z = vega(X, K, T, Y, r, q)
-        elif selected_greek == "Theta":
-            Z = theta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Rho":
-            Z = rho(X, K, T, Y, r, q, option_type)
-
-        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "σ", selected_greek), use_container_width=True)
-
-    elif mesh_choice == "S vs T":
-        X, Y = np.meshgrid(s_vals, T_vals)
-
-        if selected_greek == "Delta":
-            Z = delta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Gamma":
-            Z = gamma(X, K, T, Y, r, q)
-        elif selected_greek == "Vega":
-            Z = vega(X, K, T, Y, r, q)
-        elif selected_greek == "Theta":
-            Z = theta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Rho":
-            Z = rho(X, K, T, Y, r, q, option_type)
-
-        st.plotly_chart(plot_greeks_surface(X, Y, Z, "S", "T", selected_greek), use_container_width=True)
-
-    elif mesh_choice == "σ vs T":
-        X, Y = np.meshgrid(sigma_vals, T_vals)
-
-        if selected_greek == "Delta":
-            Z = delta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Gamma":
-            Z = gamma(X, K, T, Y, r, q)
-        elif selected_greek == "Vega":
-            Z = vega(X, K, T, Y, r, q)
-        elif selected_greek == "Theta":
-            Z = theta(X, K, T, Y, r, q, option_type)
-        elif selected_greek == "Rho":
-            Z = rho(X, K, T, Y, r, q, option_type)
-
-        st.plotly_chart(plot_greeks_surface(X, Y, Z, "σ", "T", selected_greek), use_container_width=True)
-
-
-    st.subheader("Current Greeks at Selected Point")
-    st.write({
-        "Price": round(price(S, K, T, sigma, r, q, option_type), 4),
-        "Delta": round(delta(S, K, T, sigma, r, q, option_type), 4),
-        "Gamma": round(gamma(S, K, T, sigma, r, q), 4),
-        "Vega": round(vega(S, K, T, sigma, r, q), 4),
-        "Theta": round(theta(S, K, T, sigma, r, q, option_type), 4),
-        "Rho": round(rho(S, K, T, sigma, r, q, option_type), 4),
-    })
+    st.markdown(greek_descriptions[selected_greek])        
 
 # =======================
 # Tab 2: Chain Analyzer
