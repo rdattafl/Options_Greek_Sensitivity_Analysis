@@ -176,7 +176,17 @@ def fetch_hist_prices(ticker: str, lookback: int = 60) -> pd.Series:
     Download `lookback` trading days of historical prices; return close series.
     """
     df = yf.download(ticker, period=f"{lookback}d", progress=False, auto_adjust=True)
-    return df["Adj Close"]
+
+    # yfinance with auto_adjust=True gives only "Close"
+    if "Close" in df.columns:
+        price_ser = df["Close"]
+    # fallback for older behaviour
+    elif "Adj Close" in df.columns:
+        price_ser = df["Adj Close"]
+    else:
+        raise ValueError("Price data missing Close/Adj Close columns")
+
+    return price_ser
 
 
 def calc_hv(price_ser: pd.Series, window: int = 20) -> float:
